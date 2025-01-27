@@ -4,14 +4,32 @@
 	"version": "2.0.0",
 	"tasks": [
 		{
-			"label": "⚙️ Setup",
+			"label": "1  👷  Develop",
 			"type": "gulp",
-			"task": "setup",
+			"task": "develop",
 			"group": "build",
-			"problemMatcher": [],
-			"presentation": {
-				"focus": true
-			}
+			"problemMatcher": []
+		},
+		{
+			"label": "2  🏁  Build",
+			"type": "gulp",
+			"task": "build",
+			"group": "build",
+			"problemMatcher": []
+		},
+		{
+			"label": "3  📡  Deploy",
+			"type": "gulp",
+			"task": "deploy",
+			"group": "build",
+			"problemMatcher": []
+		},
+		{
+			"label": "4  ✉️  Release",
+			"type": "gulp",
+			"task": "release",
+			"group": "build",
+			"problemMatcher": []
 		}
 	]
 }

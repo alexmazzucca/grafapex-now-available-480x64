@@ -1,11 +1,11 @@
 {
-	"name": "kindling",
+	"name": "grafapex-now-available-480x64",
 	"version": "1.0.0",
-	"description": "Kindling",
+	"description": "Repo for the development of Grafapex Now Available (480x64)",
 	"main": "index.js",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/alexmazzucca/kindling.git"
+		"url": "https://github.com/alexmazzucca/grafapex-now-available-480x64.git"
 	},
 	"author": "Alex Mazzucca <alexmazzucca@archerinteractive.com> (https://archerinteractive.com)",
 	"private": true,

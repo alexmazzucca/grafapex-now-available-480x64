@@ -1,20 +1,3 @@
-var settings = {
-	title: '',
-	repo: '',
-	repoURL: '',
-	description: '',
-	type: '',
-	url: '',
-	local_url: '',
-	database: '',
-	theme: '',
-	server: '',
-	host: '',
-	username: '',
-	password: '',
-	remote_path: '',
-};
-
 /*
 * >>========================================>
 * Required
@@ -26,539 +9,417 @@ var macUsersPath = '/Users/' + macUser;
 var macDesktopPath = macUsersPath + '/Desktop/';
 var kindling = require(macUsersPath + '/.kindling')
 var encryptor = require('simple-encryptor')(kindling.secret);
+var settings = require('./settings.json')
 var gulp = require("gulp");
-var git = require('gulp-git');
-var rename = require("gulp-rename");
-var prompt = require('gulp-prompt');
-var notify = require("gulp-notify");
-var jsonModify = require("gulp-json-modify");
-var getRepoInfo = require('git-repo-info');
+var browserSync = require("browser-sync").create();
+var uglify = require("gulp-uglify");
+var concat = require("gulp-concat");
+var autoprefixer = require("gulp-autoprefixer");
+var sourcemaps = require('gulp-sourcemaps');
+var inlineCSS = require('gulp-inline-css');
 var replace = require('gulp-replace');
+var cache = require('gulp-cache');
+var notify = require("gulp-notify");
+var gutil = require( 'gulp-util' );
+var ftp = require( 'vinyl-ftp' );
+var prompt = require('gulp-prompt');
+var inline = require('gulp-inline')
+var git = require('gulp-git');
+const zip = require('gulp-zip');
+var open = require('gulp-open');
+var log = require('fancy-log');
 
+const sass = require('gulp-sass')(require('sass'));
+const htmlmin = require("gulp-htmlmin");
 const del = require("del");
-const path = require('path');
+const imagemin = require("gulp-imagemin");
+const imageminMozjpeg = require('imagemin-mozjpeg');
 const notifier = require('node-notifier');
 
 /*
 * >>========================================>
-* Setup Tasks
+* File Paths
 * >>========================================>
 */
 
-function initialPromptForProjectInfo(cb){
-	return gulp.src('./package.json')
-		.pipe(prompt.prompt([
-		{
-			type: 'list',
-			name: 'type',
-			message: 'Project type:',
-			choices: ['Email', 'Banner', 'Static', 'WordPress'],
-		},
-		{
-			type: 'input',
-			name: 'title',
-			message: 'Project title:'
-		}
-		], function(res){
-			settings.title = res.title;
-			settings.type = res.type.toLowerCase();
-			settings.description = 'Repo for the development of ' + res.title;
-			cb();
-		}))
-		.pipe(gulp.dest('./'))
-}
-
-var bannerWidth,
-	bannerHeight;
-
-function promptForBannerDetails(cb){
-	if(settings.type == 'banner'){
-		return gulp.src('./package.json')
-			.pipe(prompt.prompt([
-			{
-				type: 'input',
-				name: 'bannerWidth',
-				message: 'Banner width:'
-			},
-			{
-				type: 'input',
-				name: 'bannerHeight',
-				message: 'Banner height:'
-			}
-			], function(res){
-				bannerWidth = res.bannerWidth;
-				bannerHeight = res.bannerHeight;
-				settings.description += ' (' + bannerWidth + 'x' + bannerHeight + ')';
-				cb();
-			}))
-			.pipe(gulp.dest('./'))
-	}else{
-		cb();
+const paths = {
+	scripts: {
+		src: [
+			"./src/js/vendor/*.js",
+			"./src/js/main.js"
+		],
+		dest: "./dist/js/"
+	},
+	styles: {
+		src: [
+			"./src/scss/*.scss",
+		],
+		dest: "./dist/css/"
+	},
+	wp_styles: {
+		src: [
+			"./src/scss/*.scss",
+		],
+		dest: "./dist/"
+	},
+	dom: {
+		src: [
+			"./src/**/*.html",
+			"./src/**/*.php"
+		],
+		dest: "./dist/"
+	},
+	images: {
+		src: "./src/img/**",
+		dest: "./dist/img/"
 	}
-}
+};
+ 
+/*
+* >>========================================>
+* Script (JS) Tasks
+* >>========================================>
+*/
 
-function promptForURL(cb){
-	if(settings.server != 'no'){
-		if(settings.server == 'elevate'){
-			if(settings.type == 'email' || settings.type == 'banner'){
-				settings.url = 'https://phpstack-1015649-3698367.cloudwaysapps.com' + '/' +  settings.remote_path;
-			}else{
-				return gulp.src('./package.json')
-					.pipe(prompt.prompt([
-					{
-						type: 'input',
-						name: 'url',
-						message: 'Remote URL (e.g. "https://yoursite.elevatehc.com"):'
-					}
-					], function(res){
-						settings.url = res.url;
-						cb();
-					}))
-					.pipe(gulp.dest('./'))
-			}
-			cb();
-		}else if(settings.server == 'xavier'){
-			settings.url = 'https://xaviercreative.com/client-work' + '/' +  settings.remote_path;
-			cb();
-		}else if(settings.server == 'archer'){
-			settings.url = 'http://clients.archerinteractive.com' + '/' + settings.remote_path;
-			cb();
-		}else{
-			return gulp.src('./package.json')
-				.pipe(prompt.prompt([
-				{
-					type: 'input',
-					name: 'url',
-					message: 'Remote URL (e.g. "http://yoursite.com"):'
-				}
-				], function(res){
-					settings.url = res.url;
-					cb();
-				}))
-				.pipe(gulp.dest('./'))
-		}
-	}else{
-		cb();
-	}
-}
-
-function promptForDevURL(cb){
-	if(settings.type == 'static' || settings.type == 'wordpress'){
-		return gulp.src('./package.json')
-			.pipe(prompt.prompt([
-			{
-				type: 'input',
-				name: 'url',
-				message: 'Local URL (MAMP) (e.g. "http://yoursite.local"):'
-			}
-			], function(res){
-				settings.local_url = res.url;
-				cb();
-			}))
-			.pipe(gulp.dest('./'))
-	}else{
-		cb();
-	}
-}
-
-function promptForSiteDetails(cb){
-	if(settings.type == 'wordpress' || settings.type == 'static'){
-		return gulp.src('./package.json')
-			.pipe(prompt.prompt([
-			{
-				type: 'input',
-				name: 'database',
-				message: 'Database name:'
-			}
-			], function(res){
-				settings.database = res.database;
-				cb();
-			}))
-			.pipe(gulp.dest('./'))
-	}else{
-		cb();
-	}
-}
-
-function promptForDeploymentOptions(cb){
-	return gulp.src('./package.json')
-		.pipe(prompt.prompt([
-		{
-			type: 'list',
-			name: 'server',
-			message: 'Would you like to configure a deployment server?',
-			choices: ['No', 'Yes']
-		}
-		], function(res){
-			if(res.server == "Yes"){
-				settings.server = res.server.toLowerCase();
-			}
-			cb();
-		}))
-		.pipe(gulp.dest('./'))
-}
-
-var serverPreset;
-
-function promptForServerPreset(cb){
-	if(settings.server == 'yes'){
-		return gulp.src('./package.json')
-			.pipe(prompt.prompt([
-			{
-				type: 'list',
-				name: 'server',
-				message: 'Please select a server:',
-				choices: ['Elevate', 'Xavier', 'Archer', 'Other']
-			}
-			], function(res){
-				settings.server = res.server.toLowerCase();
-				if(settings.server == 'xavier'){
-					settings.remote_path = settings.repo;
-				}else if(settings.server == 'archer'){
-					settings.remote_path = settings.repo;
-				}
-				cb();
-			}))
-			.pipe(gulp.dest('./'))
-	}else{
-		cb();
-	}
-}
-
-function promptForRemoteDirectory(cb){
-	if(settings.server == 'elevate' || settings.server == 'other'){
-		return gulp.src('./package.json')
-			.pipe(prompt.prompt([
-			{
-				type: 'input',
-				name: 'remote',
-				message: 'Enter a remote directory (e.g. "client_name"):'
-			},
-			{
-				type: 'list',
-				name: 'repo',
-				message: 'Append repo name to remote path?',
-				choices: ['Yes', 'No']
-			}
-			], function(res){
-				if(res.repo == 'No') {
-					settings.remote_path = res.remote;
-				}else{
-					settings.remote_path = res.remote  + '/' + settings.repo;
-				}
-				
-				cb();
-			}))
-			.pipe(gulp.dest('./'))
-	}else{
-		cb();
-	}
-}
-
-function promptForWordpressDetails(cb){
-	if(settings.type == 'wordpress'){
-		return gulp.src('./package.json')
-			.pipe(prompt.prompt([
-			{
-				type: 'input',
-				name: 'theme',
-				message: 'Wordpress theme name:'
-			}
-			], function(res){
-				settings.theme = res.theme;
-				cb();
-			}))
-			.pipe(gulp.dest('./'))
-	}else{
-		cb();
-	}
-}
-
-function promptForLiveDeployentDetails(cb){
-	if(settings.server == 'other'){
-		return gulp.src('./package.json')
-			.pipe(prompt.prompt([
-			{
-				type: 'input',
-				name: 'host',
-				message: 'FTP Host:'
-			},
-			{
-				type: 'input',
-				name: 'username',
-				message: 'FTP Username:'
-			},
-			{
-				type: 'input',
-				name: 'password',
-				message: 'FTP Password:'
-			},
-			{
-				type: 'input',
-				name: 'remote_path',
-				message: 'Remote Path (optional):'
-			}
-			], function(res){
-				settings.host = encryptor.encrypt(res.host);
-				settings.username = encryptor.encrypt(res.username);
-				settings.password = encryptor.encrypt(res.password);
-				settings.remote_path = res.remote_path;
-				cb();
-			}))
-			.pipe(gulp.dest('./'))
-	}else{
-		cb();
-	}
-}
-
-function updateProjectInfo(cb){
-	var info = getRepoInfo();
-	settings.repo = path.basename(process.cwd());
-	settings.repoURL = 'https://github.com/alexmazzucca/' + settings.repo + '.git';
-	cb();
-}
-
-function renameWorkspaceFile(){
+function compressJS(cb) {
 	return gulp
-		.src('./.setup/workspace.code-workspace')
-		.pipe(rename(function (path) {
-			path.basename = settings.repo;
+		.src(paths.scripts.src)
+		.on("error", function(err) {
+			notify({
+				title: 'Kindling',
+				icon: 'undefined',
+				contentImage: 'undefined'
+			}).write(err);
+			this.emit('end');
+		})
+		.pipe(concat("main.js"))
+		.pipe(uglify())
+		.pipe(notify({
+			title: 'Kindling',
+			message: 'Javascript compression complete',
+			icon: 'undefined',
+			contentImage: 'undefined'
 		}))
-		.pipe(gulp.dest('./'))
+		.pipe(gulp.dest(paths.scripts.dest));
+
 	cb();
 }
 
-function updatePackageInfo(){
-	return gulp.src('./package.json')
-		.pipe(jsonModify({
-			key: 'name',
-			value: settings.repo
+function combineJS(cb) {
+	return gulp
+		.src(paths.scripts.src)
+		.on("error", function(err) {
+			notify({
+				title: 'Kindling',
+				icon: 'undefined',
+				contentImage: 'undefined'
+			}).write(err);
+			this.emit('end');
+		})
+		.pipe(concat("main.js"))
+		.pipe(notify({
+			title: 'Kindling',
+			message: 'Javascript concatenation complete',
+			icon: 'undefined',
+			contentImage: 'undefined'
 		}))
-		.pipe(jsonModify({
-			key: 'description',
-			value: settings.description
-		}))
-		.pipe(jsonModify({
-			key: 'repository.url',
-			value: settings.repoURL
-		}))
-		.pipe(gulp.dest('./'))
+		.pipe(gulp.dest(paths.scripts.dest));
+
+	cb();
 }
 
-function updateProjectSettings(cb){
-	return gulp.src('./.setup/settings.json')
-		.pipe(jsonModify({
-			key: 'type',
-			value: settings.type
+/*
+* >>========================================>
+* DOM Tasks
+* >>========================================>
+*/
+
+function compressDOM(cb) {
+	return gulp
+		.src(paths.dom.src)
+		.pipe(
+			htmlmin({
+				collapseWhitespace: true,
+				conservativeCollapse: true,
+				preserveLineBreaks: true,
+				removeComments: true
+			})
+		)
+		.pipe(gulp.dest(paths.dom.dest));
+
+	cb();
+}
+
+function copyFilesToDist(cb){
+	return gulp
+		.src(['./src/**', './src/**/.*', '!./src/js/**', '!./src/scss/**'])
+		.pipe(notify({
+			title: 'Kindling',
+			message: 'Files successfully copied to ./dist',
+			icon: 'undefined',
+			contentImage: 'undefined',
+			onLast: true
 		}))
-		.pipe(jsonModify({
-			key: 'url',
-			value: settings.url
-		}))
-		.pipe(jsonModify({
-			key: 'local_url',
-			value: settings.local_url
-		}))
-		.pipe(jsonModify({
-			key: 'database',
-			value: settings.database
-		}))
-		.pipe(jsonModify({
-			key: 'theme',
-			value: settings.theme
-		}))
-		.pipe(jsonModify({
-			key: 'server',
-			value: settings.server
-		}))
-		.pipe(jsonModify({
-			key: 'host',
-			value: settings.host
-		}))
-		.pipe(jsonModify({
-			key: 'username',
-			value: settings.username
-		}))
-		.pipe(jsonModify({
-			key: 'password',
-			value: settings.password
-		}))
-		.pipe(jsonModify({
-			key: 'remote_path',
-			value: settings.remote_path
-		}))
-		.pipe(jsonModify({
-			key: 'repo',
-			value: settings.repo
-		}))
-		.pipe(gulp.dest('./'));
+		.pipe(gulp.dest('./dist/'));
+}
+
+function updateBackgroundImagePaths(cb){
+	return gulp
+		.src('./dist/index.html')
+		.pipe(replace('background-image:url(../img/', 'background-image:url(img/'))
+		.pipe(gulp.dest(paths.dom.dest));
 	
 	cb();
 }
 
-function copyTemplateFilesToSrc(){
+/*
+* >>========================================>
+* SASS/CSS Tasks
+* >>========================================>
+*/
+
+function compressSASS(cb) {
 	return gulp
-		.src([
-			'./.setup/templates/' + settings.type +  '/**/*',
-			'!./.setup/templates/static/robots.txt',
-			'!./.setup/templates/static/.htaccess'
-		])
-		.pipe(gulp.dest('./src/'));
-}
-
-function delTempSrcFiles(cb) {
-	return del('./src/*');
+		.src(paths.styles.src)
+		.pipe(sourcemaps.init())
+		.pipe(
+			sass({
+				outputStyle: "compressed"
+			})
+		)
+		.on("error", function(err) {
+			notify({
+				title: 'Kindling',
+				icon: 'undefined',
+				contentImage: 'undefined'
+			}).write(err);
+			this.emit('end');
+		})
+		.pipe(autoprefixer())
+		.pipe(notify({
+			title: 'Kindling',
+			message: 'SASS compilation and compression complete',
+			icon: 'undefined',
+			contentImage: 'undefined',
+			onLast: true
+		}))
+		.pipe(gulp.dest(paths.styles.dest))
+		.pipe(browserSync.stream());
 
 	cb();
 }
 
-function copyTemplateAssetsToSrc(cb){
-	if(settings.type == 'static' || settings.type == 'wordpress'){
-		return gulp
-			.src([
-				'./.setup/templates/scss*/**/*',
-				'./.setup/templates/js*/**/*'
-			])
-			.pipe(gulp.dest('./src/'));
-	}
-	cb();
-}
-
-function copyTemplateFilesToDist(cb){
-	if(settings.type == 'static'){
-		return gulp
-			.src([
-				'./.setup/templates/static/.htaccess',
-				'./.setup/templates/static/robots.txt'
-			])
-			.pipe(gulp.dest('./dist/'));
-	}
-	cb();
-}
-
-function changeNotificationIcon(cb){
+function inlineStyles(cb) {
 	return gulp
-		.src('./.setup/Terminal.icns')
-		.pipe(gulp.dest('./node_modules/node-notifier/vendor/mac.noindex/terminal-notifier.app/Contents/Resources/'))
+		.src('./dist/index.html')
+		.pipe(inlineCSS({
+			applyStyleTags: true,
+			applyLinkTags: true,
+			removeStyleTags: true,
+			removeLinkTags: true,
+			removeHtmlSelectors: true,
+			xmlMode: true,
+		}))
+		.pipe(notify({
+			title: 'Kindling',
+			message: 'CSS inline complete',
+			icon: 'undefined',
+			contentImage: 'undefined'
+		}))
+		.pipe(gulp.dest(paths.dom.dest))
+
 	cb();
 }
 
-function updateBuildTasks(cb){
-	if(settings.server != '' && settings.type != 'email'){
-		if(settings.database != ''){
-			return gulp
-				.src('./.setup/tasks-deployment-database.json')
-				.pipe(rename(function (path) {
-					path.basename = 'tasks';
-				}))
-				.pipe(gulp.dest('./.vscode/'))
-			cb();
-		}else{
-			return gulp
-				.src('./.setup/tasks-deployment.json')
-				.pipe(rename(function (path) {
-					path.basename = 'tasks';
-				}))
-				.pipe(gulp.dest('./.vscode/'))
-			cb();
+function delTempCSSDir(cb) {
+	return del(paths.styles.dest);
+
+	cb();
+}
+
+function delTempJSDir(cb) {
+	return del(paths.scripts.dest);
+
+	cb();
+}
+
+function inlineStylesJS(cb) {	
+	return gulp
+	.src('./dist/index.html')
+	.pipe(inline({
+		disabledTypes: ['svg', 'img'], // Only inline css files
+	}))
+	.pipe(gulp.dest('dist/'));
+}
+
+/*
+* >>========================================>
+* Image Tasks
+* >>========================================>
+*/
+
+function compressImg(cb) {
+	return gulp
+		.src(paths.images.src)
+		.pipe(cache(imagemin([
+			imageminMozjpeg({quality: 85}),
+			imagemin.optipng({optimizationLevel: 5})
+		], {
+			verbose: true
+		})))
+		.pipe(notify({
+			title: 'Kindling',
+			message: 'Image compression complete',
+			icon: 'undefined',
+			contentImage: 'undefined',
+			onLast: true
+		}))
+		.pipe(gulp.dest(paths.images.dest));
+
+	cb();
+}
+
+/*
+* >>========================================>
+* Start Server and Live Reload
+* >>========================================>
+*/
+
+function startServer(cb) {
+	browserSync.init({
+		server: {
+			baseDir: "./dist/"
 		}
-	}else {
-		if(settings.type == 'email'){
-			if(settings.server != 'no'){
-				return gulp
-					.src('./.setup/tasks-email-deployment.json')
-					.pipe(rename(function (path) {
-						path.basename = 'tasks';
-					}))
-					.pipe(gulp.dest('./.vscode/'))
-				cb();
-			}else{
-				return gulp
-					.src('./.setup/tasks-email.json')
-					.pipe(rename(function (path) {
-						path.basename = 'tasks';
-					}))
-					.pipe(gulp.dest('./.vscode/'))
-				cb();
-			}
-		}else{
-			return gulp
-			.src('./.setup/tasks.json')
-			.pipe(gulp.dest('./.vscode/'))
-			cb();
-		}
-	}
-}
+	});
 
-function updateBannerHTML(cb){
-	if(settings.type == 'banner'){
-	return gulp.src(['./src/index.html'])
-			.pipe(replace('<title></title>', '<title>' + bannerWidth +  'x' + bannerHeight + '</title>'))
-			.pipe(replace('<meta name="ad.size" content="">', '<meta name="ad.size" content="width=' + bannerWidth + ',height=' + bannerHeight + '">'))
-			.pipe(gulp.dest('./src/'));
-		cb();
-	}else{
-		cb();
-	}
-}
-
-function updateBannerCSS(cb){
-	if(settings.type == 'banner'){
-		return gulp.src(['./src/scss/main.scss'])
-			.pipe(replace('/* width */', bannerWidth + 'px'))
-			.pipe(replace('/* height */', bannerHeight + 'px'))
-			.pipe(gulp.dest('./src/scss/'));
-		cb();
-	}else{
-		cb();
-	}
-}
-
-function updateGulpFile(cb){
-	if(settings.type == 'email'){
-		return gulp
-			.src('./.setup/gulpfile-email.js')
-			.pipe(rename(function (path) {
-				path.basename = 'gulpfile';
-			}))
-			.pipe(gulp.dest('./'))
-		cb();
-	}else if(settings.type == 'banner'){
-		return gulp
-			.src('./.setup/gulpfile-banner.js')
-			.pipe(rename(function (path) {
-				path.basename = 'gulpfile';
-			}))
-			.pipe(gulp.dest('./'))
-		cb();
-	}else {
-		return gulp
-			.src('./.setup/gulpfile.js')
-			.pipe(gulp.dest('./'));
-	}
-}
-
-function updateREADME(cb){
-	return gulp.src(['./.setup/README.md'])
-			.pipe(replace('<title>', settings.title))
-			.pipe(replace('<description>', settings.description))
-			.pipe(replace('<type>', settings.type))
-			.pipe(gulp.dest('./'));
-
-		cb();
-}
-
-const delSetupFiles = () => del(['./.setup']);
-
-function setupComplete(cb){
 	notifier.notify({
 		title: 'Kindling',
-		message: 'Project successfully configured',
+		message: 'Server started',
 		icon: 'undefined',
 		contentImage: 'undefined'
 	});
+	
+	cb();
+}
+
+/*
+* >>========================================>
+* Watch Folders for Changes
+* >>========================================>
+*/
+
+function watchForChanges() {
+	gulp.watch(paths.dom.src, gulp.series(compressDOM, liveReload));
+	gulp.watch(paths.scripts.src, gulp.series(combineJS, liveReload));
+	gulp.watch(paths.styles.src, gulp.series(compressSASS));
+	gulp.watch(paths.images.src, {events: ['all']}, gulp.series(compressImg, liveReload));
+	gulp.watch(['./src/**', '!./src/js/**', '!./src/scss/**', '!./src/img/**', '!./src/**/*.html', '!./src/**/*.php'], {events: ['add']}, gulp.series(copyFilesToDist, liveReload));
+}
+
+function liveReload(cb) {
+	browserSync.reload();
 
 	cb();
+}
+
+/*
+* >>========================================>
+* Deployment
+* >>========================================>
+*/
+
+var deploymentCheck;
+
+function confirmDeployment(cb){
+	return gulp.src('./package.json')
+		.pipe(prompt.prompt([
+		{
+			type: 'list',
+			name: 'deploymentCheck',
+			message: 'Are you sure you want to deploy (FTP)?',
+			choices: ['Yes', 'No'],
+		},
+		], function(res){
+			deploymentCheck = res.deploymentCheck.toLowerCase();
+			cb();
+		}))
+		.pipe(gulp.dest('./'))
+}
+
+function deployToServer(){
+	if(settings.server == 'other'){
+		var conn = ftp.create( {
+			host:     encryptor.decrypt(settings.host),
+			user:     encryptor.decrypt(settings.username),
+			password: encryptor.decrypt(settings.password),
+			parallel: 4,
+			log:      gutil.log
+		});
+	}else{
+		var conn = ftp.create( {
+			host:     encryptor.decrypt(kindling.remote[settings.server].ftp.host),
+			user:     encryptor.decrypt(kindling.remote[settings.server].ftp.username),
+			password: encryptor.decrypt(kindling.remote[settings.server].ftp.password),
+			parallel: 4,
+			log:      gutil.log
+		});
+	}
+	
+	return gulp.src( './dist/**', { base: './dist/', buffer: false } )
+		.pipe(conn.dest(settings.remote_path + currentBranch));
+		
+	cb();
+}
+
+function deploymentComplete(cb){
+	return gulp.src(__filename)
+		.pipe(open({uri: settings.url + currentBranch}));
+
+	log('Project deployed: ' + settings.url + currentBranch);
+
+	cb();
+}
+
+/*
+* >>========================================>
+* Release
+* >>========================================>
+*/
+
+var releaseToZip = '';
+
+function promptForReleaseMethod(cb){
+	var releaseTimestamp = new Date();
+	releaseDate = releaseTimestamp.getFullYear() + "-" + ('0' + (releaseTimestamp.getMonth() + 1)).slice(-2) + "-" + ('0' + releaseTimestamp.getDate()).slice(-2);
+
+	return gulp.src('./*')
+		.pipe(prompt.prompt([
+		{
+			type: 'list',
+			name: 'releaseMethod',
+			message: 'Zip the project?',
+			choices: ['No','Yes'],
+		}
+		], function(res){
+			releaseToZip = res.releaseMethod.toLowerCase();
+		}))
+
+	cb();
+}
+
+function packageFiles(cb){
+	if(releaseToZip == 'yes') {
+		return gulp
+			.src('./dist/**')
+			.pipe(zip(settings.repo + '_' + releaseDate + '.zip'))
+			.pipe(gulp.dest(macDesktopPath))
+			cb();
+	}else{
+		return gulp
+			.src('./dist/**')
+			.pipe(gulp.dest(macDesktopPath + settings.repo  + '/'));
+			cb();
+	}
 }
 
 /*
@@ -569,27 +430,57 @@ function setupComplete(cb){
 
 var commitSummary = '';
 
+function promptForSummary(cb){
+	return gulp.src('./*')
+		.pipe(prompt.prompt([
+		{
+			type: 'input',
+			name: 'summary',
+			message: 'Commit Summary (optional):'
+		}
+		], function(res){
+			if(res.summary != ''){
+				commitSummary = res.summary;
+			}else{
+				var commitDate = new Date();
+				commitDate = commitDate.getFullYear() + "-" + ('0' + (commitDate.getMonth() + 1)).slice(-2) + "-" + ('0' + commitDate.getDate()).slice(-2) + " " + ('0' + commitDate.getHours()).slice(-2) + ":" + ('0' + commitDate.getMinutes()).slice(-2) + ":" + ('0' + commitDate.getSeconds()).slice(-2);
+				commitSummary = commitDate;
+			}
+
+			if(deploymentCheck == 'yes') {
+				commitSummary = commitSummary + ' (Deploy)';
+			}else if(releaseToZip != ''){
+				commitSummary = commitSummary + ' (Release)';
+			}else{
+				commitSummary = commitSummary + ' (Build)';
+			}
+		}))
+
+	cb();
+}
+
 function gitAdd(cb){
 	return gulp.src('./')
 		.pipe(git.add());
 }
 
-var buildDate = new Date()
-
-buildDate = buildDate.getFullYear() + "-" + ('0' + (buildDate.getMonth() + 1)).slice(-2) + "-" + ('0' + buildDate.getDate()).slice(-2) + " " + ('0' + buildDate.getHours()).slice(-2) + ":" + ('0' + buildDate.getMinutes()).slice(-2) + ":" + ('0' + buildDate.getSeconds()).slice(-2);
-
-function gitInitialCommit(cb){
+function gitCommit(cb){
 	return gulp.src('./')
-		.pipe(git.commit('Setup complete'));
+		.pipe(git.commit(commitSummary));
 }
+
+var currentBranch = '';
 
 function gitPush(cb){
 	git.revParse({args:'--abbrev-ref HEAD'}, function (err, branch) {
-		currentBranch = branch;
-
+		
 		git.push('origin', branch, function (err) {
 			//if (err) ...
 		});
+
+		if(branch != 'master') {
+			currentBranch = '-' + branch;
+		}
 
 		cb();
 	});
@@ -597,40 +488,141 @@ function gitPush(cb){
 
 /*
 * >>========================================>
-* Setup Task Series
+* Build Tasks
 * >>========================================>
 */
 
-const setupProject = gulp.series(
-	initialPromptForProjectInfo,
-	updateProjectInfo,
-	promptForBannerDetails,
-	promptForSiteDetails,
-	promptForDeploymentOptions,
-	promptForServerPreset,
-	promptForRemoteDirectory,
-	promptForURL,
-	promptForDevURL,
-	promptForLiveDeployentDetails,
-	promptForWordpressDetails,
-	renameWorkspaceFile,
-	updatePackageInfo,
-	updateProjectSettings,
-	updateGulpFile,
-	delTempSrcFiles,
-	copyTemplateAssetsToSrc,
-	copyTemplateFilesToSrc,
-	copyTemplateFilesToDist,
-	updateBannerHTML,
-	updateBannerCSS,
-	changeNotificationIcon,
-	updateBuildTasks,
-	updateREADME,
-	delSetupFiles,
+function delDistDir(cb) {
+	return del('./dist/');
+
+	cb();
+}
+
+function buildComplete(cb){
+	notifier.notify({
+		title: 'Kindling',
+		message: 'Tasks successfully completed',
+		icon: 'undefined',
+		contentImage: 'undefined'
+	});
+
+	cb();
+}
+
+const buildTasks = gulp.series(
+	promptForSummary,
+	delDistDir,
+	copyFilesToDist,
+	gulp.parallel(
+		compressJS,
+		compressSASS,
+		compressDOM,
+		compressImg
+	),
+	inlineStylesJS,
+	updateBackgroundImagePaths,
+	delTempCSSDir,
+	delTempJSDir,
 	gitAdd,
-	gitInitialCommit,
+	gitCommit,
 	gitPush,
-	setupComplete
+	buildComplete
 );
 
-gulp.task("setup", setupProject);
+gulp.task("build", buildTasks);
+
+/*
+* >>========================================>
+* Development Tasks
+* >>========================================>
+*/
+
+const devTasks = gulp.series(
+	delDistDir,
+	copyFilesToDist,
+	combineJS,
+	compressSASS,
+	compressDOM,
+	compressImg,
+	startServer,
+	watchForChanges
+);
+
+gulp.task("develop", devTasks);
+
+/*
+* >>========================================>
+* Git Tasks
+* >>========================================>
+*/
+
+const gitTasks = gulp.series(
+	promptForSummary,
+	gitAdd,
+	gitCommit,
+	gitPush
+);
+
+gulp.task("commit", gitTasks);
+
+/*
+* >>========================================>
+* Deployment Tasks
+* >>========================================>
+*/
+
+const deploymentTasks = gulp.series(
+	confirmDeployment,
+	promptForSummary,
+	delDistDir,
+	copyFilesToDist,
+	gulp.parallel(
+		compressJS,
+		compressSASS,
+		compressDOM,
+		compressImg
+	),
+	inlineStylesJS,
+	updateBackgroundImagePaths,
+	delTempCSSDir,
+	delTempJSDir,
+	gitAdd,
+	gitCommit,
+	gitPush,
+	deployToServer,
+	deploymentComplete
+);
+
+gulp.task("deploy", deploymentTasks);
+
+/*
+* >>========================================>
+* Release Tasks
+* >>========================================>
+*/
+
+const releaseTasks = gulp.series(
+	promptForReleaseMethod,
+	promptForSummary,
+	delDistDir,
+	copyFilesToDist,
+	gulp.parallel(
+		compressJS,
+		compressSASS,
+		compressDOM,
+		compressImg
+	),
+	inlineStylesJS,
+	updateBackgroundImagePaths,
+	delTempCSSDir,
+	delTempJSDir,
+	gitAdd,
+	gitCommit,
+	gulp.parallel(
+		gitPush,
+		packageFiles
+	),
+	buildComplete
+);
+
+gulp.task("release", releaseTasks);
