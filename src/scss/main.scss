@@ -113,6 +113,76 @@ Banner and Animated Objects
     top: 0;
 }
 
+#fda-approved {
+    top: 4px;
+    left: 10px;
+}
+
+#grafapex-logo {
+    top: 16px;
+    left: 10px;
+}
+
+#copy-1 {
+    top: 7px;
+    left: 179px;
+}
+
+#branch {
+    left: 128px;
+}
+
+#button {
+    top: 13px;
+    left: 190px;
+}
+
+#arrow {
+    top: 19px;
+    left: 297px;
+}
+
+#flower-5 {
+    left: 128px;
+    top: 3px;
+}
+
+#flower-6 {
+    left: 139px;
+    top: 18px;
+}
+
+#arrow img {
+    transform: translateX(0px);
+    transition: transform 300ms ease;
+}
+
+#primary-link:hover ~ #arrow img {
+    transform: translateX(2px);
+}
+
+#pi-warning-link {
+    width: 270px;
+    border-top-left-radius: 10px;
+    position: absolute;
+    height: 17px;
+    background: linear-gradient(90deg, #470a68 0%, #911276 48%, #da1984 100%);
+    font-size: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    bottom: 0px;
+    right: 160px;
+
+    a {
+        color: $color_white;
+
+        &:hover {
+            text-decoration: none;
+        }
+    }
+}
+
 /*
 >>================================================================================>
 ISI
@@ -121,14 +191,24 @@ ISI
 
 #isi {
     position: absolute;
-    width: 100%;
+    background-color: $color_white;
+    border-top: 1px;
+    width: 160px;
+    right: 0;
+    height: 100%;
     overflow: auto;
     -webkit-overflow-scrolling: touch;
     -ms-overflow-style: -ms-autohiding-scrollbar;
     background-color: $color_white;
+    top: 0;
+    border-left: 1px solid #999;
 
     .container {
-        padding: 10px;
+        padding: 5px 10px 30px 5px;
+
+        > *:last-child {
+            margin-bottom: 0;
+        }
     }
 
     a,
@@ -143,10 +223,13 @@ ISI
     h3,
     h4,
     h5,
-    p {
+    p,
+    li {
+        font-size: 9px;
+        line-height: 10px;
         margin-top: 0;
         font-family: $font_primary;
-        color: $color_black;
+        color: #6D6E70;
     }
     
     sup, sub {
@@ -154,5 +237,51 @@ ISI
         position: relative;
         top: -0.4em;
         font-size: 0.6em;
+    }
+
+    p {
+        margin-bottom: 5px;
+
+        + h2 {
+            margin-top: 15px;
+        }
+    }
+
+    h1,
+    h2 {
+        margin-bottom: 5px;
+    }
+
+    ul {
+        padding: 0;
+        margin: 0;
+        padding-left: 10px;
+        margin-bottom: 10px;
+
+        li:not(:last-child) {
+            margin-bottom: 5px;
+        }
+    }
+
+    .boxed {
+        padding: 10px;
+        margin-top: 7px;
+        margin-bottom: 10px;
+        border: 1px solid #000;
+        font-weight: bold;
+
+        ul {
+            margin: 0;
+        }
+    }
+
+    img {
+        padding-top: 10px;
+        padding-bottom: 15px;
+    }
+
+    a {
+        color: #DA1984;
+        text-decoration: underline;
     }
 }

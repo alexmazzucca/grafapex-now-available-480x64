@@ -8,7 +8,7 @@
     "editor.accessibilitySupport": "off",
     "explorer.confirmDragAndDrop": false,
     "window.zoomLevel": 0,
-    "editor.occurrencesHighlight": false,
+    "editor.occurrencesHighlight": "off",
     "editor.matchBrackets": "never",
     "editor.renderLineHighlight": "gutter",
     "workbench.colorTheme": "Monokai ST3",
